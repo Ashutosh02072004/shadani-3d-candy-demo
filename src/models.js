@@ -346,6 +346,32 @@ export function makeBlob(shared, size, opacity = 1) {
   return m;
 }
 
+// A pool of light on the floor, with a fine ring, so the front can has a stage.
+export function makeStagePool() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const g = c.getContext('2d');
+  const r = g.createRadialGradient(256, 256, 20, 256, 256, 256);
+  r.addColorStop(0, 'rgba(255,255,255,.95)');
+  r.addColorStop(0.5, 'rgba(255,255,255,.6)');
+  r.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = r; g.fillRect(0, 0, 512, 512);
+  g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = 3;
+  g.beginPath(); g.arc(256, 256, 176, 0, 7); g.stroke();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, toneMapped: false, fog: false }),
+  );
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = 0.002;
+  mesh.renderOrder = -2;
+  mesh.scale.setScalar(5.2);
+  return mesh;
+}
+
 // ---------------------------------------------------------------- the can
 
 // Candies hidden behind the label are skipped, which keeps the triangle count down.

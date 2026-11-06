@@ -9,7 +9,7 @@ import '@fontsource/baloo-2/latin-800.css';
 import './style.css';
 import logoUrl from './assets/logo.svg';
 import { FLAVOURS, productUrl } from './data.js';
-import { CAN, buildCan, candyGeometry, candyMaterial, createShared, makeBlob, packGeometry, packMaps, studioEnvironment } from './models.js';
+import { CAN, buildCan, candyGeometry, candyMaterial, createShared, makeBlob, makeStagePool, packGeometry, packMaps, studioEnvironment } from './models.js';
 
 const $ = (id) => document.getElementById(id);
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -22,10 +22,18 @@ let active = 0;
 
 // ---------------------------------------------------------------- UI
 
+// The red marker that slides between the flavour chips.
+const pill = document.createElement('div');
+pill.className = 'chip-pill';
+function placePill(chip) {
+  pill.style.width = `${chip.offsetWidth}px`;
+  pill.style.transform = `translateX(${chip.offsetLeft}px)`;
+}
+
 const ui = {
   fill(f) {
     const flat = document.body.classList.contains('no-webgl');
-    $('c-weight').textContent = `Net weight ${f.weight}`;
+    $('c-weight').textContent = `${String(FLAVOURS.indexOf(f) + 1).padStart(2, '0')} / ${String(FLAVOURS.length).padStart(2, '0')} · Net weight ${f.weight}`;
     $('c-name').textContent = f.name;
     $('c-tagline').textContent = f.tagline;
     $('c-tags').innerHTML = f.tags.map((t) => `<li>${t}</li>`).join('');
@@ -43,11 +51,14 @@ const ui = {
     s.setProperty('--bg2', f.tint[1]);
     s.setProperty('--accent', f.colour);
     $('word').textContent = f.word;
+    $('cap-name').textContent = f.name;
+    $('cap-price').textContent = rupees(f.price);
     document.querySelector('meta[name=theme-color]').content = f.tint[0];
     document.querySelectorAll('.chip').forEach((c, i) => {
       if (FLAVOURS[i] === f) {
         c.setAttribute('aria-current', 'true');
         c.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+        placePill(c);
       }
       else c.removeAttribute('aria-current');
     });
@@ -66,6 +77,7 @@ let request = ({ index = active }) => {
   ui.card(true);
 };
 
+$('chips').append(pill);
 FLAVOURS.forEach((f, i) => {
   const b = document.createElement('button');
   b.type = 'button';
@@ -75,7 +87,17 @@ FLAVOURS.forEach((f, i) => {
   $('chips').append(b);
 });
 $('logo').src = logoUrl;
+$('loader-logo').src = logoUrl;
 ui.theme(FLAVOURS[0]);
+addEventListener('resize', () => {
+  const current = document.querySelector('.chip[aria-current]');
+  if (current) placePill(current);
+});
+
+// Previous / next: browse the shelf. Replaced below once the 3D scene is running.
+let navigate = (dir) => request({ index: (active + dir + FLAVOURS.length) % FLAVOURS.length });
+$('prev').addEventListener('click', () => navigate(-1));
+$('next').addEventListener('click', () => navigate(1));
 
 // On the live Shopify store the same-origin product endpoint gives current prices.
 async function refreshPrices() {
@@ -180,6 +202,8 @@ async function start() {
   const hero = new THREE.Mesh(geos.raspberry.hero, mats[0]);
   hero.visible = false;
   scene.add(hero);
+  const pool = makeStagePool();
+  scene.add(pool);
   const heroShadow = makeBlob(shared, 2.6, 0);
   scene.add(heroShadow);
 
@@ -254,7 +278,8 @@ async function start() {
   // Everything animated reads from this one state object each frame.
   const stage = {
     angle: 0,   // carousel rotation, in steps of one can
-    spread: 0,  // 0 = other cans in view, 1 = cleared away
+    spread: 1,  // 0 = other cans in view, 1 = cleared away (starts cleared for the entrance)
+    intro: 0,   // entrance scale of the front can
     heroX: 0,   // sideways shift of the front can while open
     camY: 0,    // vertical framing shift while open
     camZ: 0,    // extra camera distance while open, on portrait screens
@@ -340,7 +365,7 @@ async function start() {
     drag.moved += Math.abs(dx) + Math.abs(dy);
     drag.velY = dx * 0.012;
     drag.velX = dy * 0.012;
-    if (stage.candy > 0.5) { drag.candyY += drag.velY; drag.candyX += drag.velX; } else drag.canRot += drag.velY;
+    if (stage.candy > 0.5) { drag.candyY += drag.velY; drag.candyX += drag.velX; hideTip(true); } else drag.canRot += drag.velY;
   });
   canvas.addEventListener('pointerup', (e) => {
     if (!drag.on) return;
@@ -353,6 +378,22 @@ async function start() {
   canvas.addEventListener('pointercancel', () => { drag.on = false; });
 
   // ------------------------------------------------------------ choreography
+
+  // "Drag to spin" appears under the candy until someone has tried it.
+  let tipSeen = false;
+  const tipPos = new THREE.Vector3();
+  function hideTip(seen) {
+    if (seen) tipSeen = true;
+    document.body.classList.remove('tip-on');
+  }
+  function showTip() {
+    if (tipSeen) return;
+    tipPos.set(layout.candyX, layout.candyY - layout.heroScale * 1.28, 0.3).project(camera);
+    $('drag-tip').style.left = `${((tipPos.x + 1) / 2) * innerWidth}px`;
+    $('drag-tip').style.top = `${((1 - tipPos.y) / 2) * innerHeight}px`;
+    document.body.classList.add('tip-on');
+    gsap.delayedCall(4.5, () => hideTip(false));
+  }
 
   const speed = reduceMotion ? 4 : 1;
   const play = (tl) => new Promise((resolve) => { tl.timeScale(speed); tl.eventCallback('onComplete', resolve); });
@@ -415,6 +456,7 @@ async function start() {
       tl.to(s, { blend: 1, duration: 1.05, ease: 'power3.out' }, 1.62 + i * 0.075);
     });
     tl.call(() => ui.card(true), null, 1.85);
+    tl.call(showTip, null, 2.5);
     return play(tl);
   }
 
@@ -422,6 +464,7 @@ async function start() {
     const can = cans[active];
     const lid = can.lid, home = can.lidHome;
     ui.card(false);
+    hideTip(false);
     const tl = gsap.timeline();
     sats.forEach((s, i) => {
       tl.to(s, { blend: 0, duration: 0.5, ease: 'power2.in' }, i * 0.04);
@@ -472,7 +515,7 @@ async function start() {
     if (isOpen) { await closeCan(); isOpen = false; }
     if (!toggleShut) {
       if (r.index !== active) await rotateTo(r.index);
-      if (!pending) { await openCan(); isOpen = true; }
+      if (!pending && r.type !== 'browse') { await openCan(); isOpen = true; }
     }
     busy = false;
     document.body.classList.remove('busy');
@@ -480,14 +523,31 @@ async function start() {
   }
   request = (r) => { if (busy) pending = r; else perform(r); };
 
+  // While closed, the arrows browse the shelf. While open, they switch candy.
+  navigate = (dir) => {
+    const n = FLAVOURS.length;
+    const base = pending && pending.index !== undefined ? pending.index : active;
+    request({ type: isOpen ? 'pick' : 'browse', index: (base + dir + n) % n });
+  };
+
+  function playEntrance() {
+    busy = true;
+    document.body.classList.add('busy');
+    const tl = gsap.timeline();
+    tl.to(stage, { intro: 1, duration: 0.95, ease: 'back.out(1.6)' }, 0.3);
+    tl.to(stage, { spread: 0, duration: 1, ease: 'power3.out' }, 0.6);
+    play(tl).then(() => {
+      busy = false;
+      document.body.classList.remove('busy');
+      if (pending) { const next = pending; pending = null; perform(next); }
+    });
+  }
+
   $('close').addEventListener('click', () => request({ type: 'close' }));
   addEventListener('keydown', (e) => {
     if (e.key === 'Escape') request({ type: 'close' });
-    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-      const n = FLAVOURS.length;
-      const base = pending && pending.index !== undefined ? pending.index : active;
-      request({ type: 'pick', index: (base + (e.key === 'ArrowRight' ? 1 : n - 1)) % n });
-    }
+    if (e.key === 'ArrowRight') navigate(1);
+    if (e.key === 'ArrowLeft') navigate(-1);
   });
 
   addEventListener('resize', resize);
@@ -518,7 +578,7 @@ async function start() {
       const isActive = i === active;
       const push = isActive ? 0 : stage.spread;
       const R = RING * (1 + push * 0.55);
-      const scale = 1 - push;
+      const scale = (1 - push) * (isActive ? stage.intro : 1);
       can.root.visible = scale > 0.01 && Math.abs(a) < (small ? 1.5 : 2.5);
       if (!can.root.visible) return;
       can.root.position.set(Math.sin(a) * R + (isActive ? stage.heroX : 0), 0, (Math.cos(a) - 1) * R);
@@ -528,6 +588,9 @@ async function start() {
       can.lidShadow.position.set(can.lid.position.x, 0.006, can.lid.position.z);
     });
     if (!drag.on) drag.canRot *= Math.exp(-dt * 3.2);
+
+    pool.position.x = stage.heroX;
+    pool.material.opacity = stage.intro;
 
     // Hero candy: from the mouth of the can to its display spot, in an arc
     mouth.set(stage.heroX, CAN.MOUTH - stage.sink * 0.72, 0);
@@ -598,7 +661,10 @@ async function start() {
     const dt = Math.min(deltaMs / 1000, 0.05);
     update(dt);
     renderer.render(scene, camera);
-    if (!document.body.classList.contains('ready')) document.body.classList.add('ready');
+    if (!document.body.classList.contains('ready')) {
+      document.body.classList.add('ready');
+      playEntrance();
+    }
     watchFrameRate(dt);
   });
   gsap.ticker.lagSmoothing(200, 33);
