@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shadani 3D Candy Demo</title>
+<meta name="description" content="Interactive 3D candy experience, a concept demo for Shadani.">
+<meta name="theme-color" content="#FFF3E2">
+<!--CSS-->
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"><div class="word" id="word">ORANGE</div></div>
+  <canvas id="stage" aria-label="3D view of a Shadani candy can. Use the flavour buttons below to open it."></canvas>
+
+  <header class="top">
+    <a class="logo" href="https://shadanigroup.com/" target="_blank" rel="noopener"><img id="logo" alt="Shadani"></a>
+    <div class="top-actions">
+      <button class="icon-btn" id="sound" type="button" aria-pressed="true" aria-label="Sound"></button>
+      <a class="btn" href="https://shadanigroup.com/collections/all" target="_blank" rel="noopener">Shop Now</a>
+    </div>
+  </header>
+
+  <p class="hint" id="hint">Tap the can to open it</p>
+
+  <aside class="card" id="card" aria-live="polite" aria-hidden="true">
+    <button class="close" id="close" type="button" aria-label="Close and put the candy back">&times;</button>
+    <img class="pack" id="c-pack" alt="" hidden>
+    <p class="eyebrow" id="c-weight"></p>
+    <h1 id="c-name"></h1>
+    <p class="tagline" id="c-tagline"></p>
+    <ul class="tags" id="c-tags"></ul>
+    <div class="buy">
+      <div class="price"><strong id="c-price"></strong><s id="c-was"></s><span class="off" id="c-off"></span></div>
+      <a class="btn" id="c-link" target="_blank" rel="noopener">View on Store</a>
+    </div>
+  </aside>
+
+  <nav class="chips" id="chips" aria-label="Choose a flavour"></nav>
+  <p class="foot">Concept demo, not the official Shadani store</p>
+
+  <div class="loader" id="loader" role="status" aria-label="Loading"><span></span></div>
+<!--JS-->
+</body>
+</html>

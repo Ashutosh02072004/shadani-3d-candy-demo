@@ -1,0 +1,20 @@
+{
+  "name": "shadani-3d-candy-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Interactive 3D candy experience: a concept demo for Shadani",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch"
+  },
+  "dependencies": {
+    "gsap": "^3.12.5",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@fontsource/baloo-2": "^5.1.0",
+    "@fontsource/poppins": "^5.1.0",
+    "esbuild": "^0.24.0"
+  }
+}
